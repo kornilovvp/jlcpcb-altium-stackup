@@ -54,6 +54,11 @@ if abs(tot - ct) > 0.0005:
     errors.append(f"total {tot} != JLC {ct}")
 if lids != list(range(17039361, 17039361 + len(lids))):
     errors.append(f"dielectric LAYERIDs not sequential: {lids}")
+cu = [L for i, L in sorted(layers.items()) if "COPTHICK" in L]
+if [L["NAME"] for L in cu] != [f"L{i + 1}" for i in range(len(cu))]:
+    errors.append(f"copper names not L1..L{len(cu)}: {[L['NAME'] for L in cu]}")
+if [int(L["LAYERID"]) for L in cu] != [16777217 + i for i in range(len(cu) - 1)] + [16842751]:
+    errors.append(f"copper LAYERIDs not Top, Mid1.., Bottom: {[L['LAYERID'] for L in cu]}")
 ids = {L["ID"] for L in layers.values()}
 dangling = [k for k, v in kv.items() if (k.startswith("TRACEIMPEDANCE") or k.startswith("VIASPAN"))
             and (k.endswith("LAYERID") or k.endswith("REFID")) and v not in ids]

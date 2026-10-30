@@ -10,6 +10,13 @@
 | `jlcpcb_8L_1.6mm_outer1oz_inner0.5oz_JLC08161H-2116.stackup` | JLC08161H-2116 (default) | 1.5996 mm | дифпара 100 Ом на L3 при w 0.13 / g 0.20 mm, без доплаты |
 | `jlcpcb_8L_1.6mm_outer1oz_inner0.5oz_JLC08161H-7628.stackup` | JLC08161H-7628 | 1.6028 mm | симметричный стек, доплата |
 | `jlcpcb_8L_1.6mm_outer1oz_inner0.5oz_JLC08161H-2313.stackup` | JLC08161H-2313 | 1.5236 mm | исторический, для L3 не подходит |
+| `jlcpcb_4L_1.6mm_outer1oz_inner0.5oz_JLC04161H-7628.stackup` | JLC04161H-7628 (default) | 1.5862 mm | 4 слоя 1.6 mm, без доплаты |
+| `jlcpcb_4L_1.6mm_outer1oz_inner0.5oz_JLC04161H-3313.stackup` | JLC04161H-3313 | 1.5642 mm | 4 слоя 1.6 mm, тонкий препрег до L2/L3 |
+| `jlcpcb_4L_1.0mm_outer1oz_inner0.5oz_JLC04101H-7628.stackup` | JLC04101H-7628 (default) | 1.0212 mm | 4 слоя 1.0 mm, без доплаты |
+| `jlcpcb_4L_1.0mm_outer1oz_inner0.5oz_JLC04101H-3313.stackup` | JLC04101H-3313 | 0.9992 mm | 4 слоя 1.0 mm, тонкий препрег до L2/L3 |
+
+4-слойные файлы проверены 2026-10-29 против `data/jlc_4L_1.6mm_outer1oz_inner0.5oz_templates.json`
+и `data/jlc_4L_1.0mm_outer1oz_inner0.5oz_templates.json`, 0 расхождений.
 
 ## Стеки
 
@@ -84,13 +91,30 @@
 
 Итого без маски 1.5236 mm. В первой версии файла внешние препреги были 0.2083 mm / Er 4.5 (ошибка), исправлено 2026-10-14.
 
+### 4 слоя, 1 oz / 0.5 oz (JLC04161H-*, JLC04101H-*)
+
+Все четыре стека одного вида и симметричны: L1 Cu 0.035 / препрег / L2 Cu 0.0152 / ядро / L3 Cu 0.0152 / препрег / L4 Cu 0.035.
+
+| Шаблон | Толщина | Препрег L1–L2 и L3–L4 | Ядро L2–L3 | Итого без маски | Доплата | Expedited |
+|--------|---------|-----------------------|------------|-----------------|---------|-----------|
+| JLC04161H-7628 (default) | 1.6 | 7628*1, 0.2104 mm, Er 4.4 | 1.065 mm (1.1 mm H/HOZ с медью), Er 4.43 | 1.5862 mm | нет | да |
+| JLC04161H-3313 | 1.6 | 3313*1, 0.0994 mm, Er 4.1 | 1.265 mm (1.3 mm H/HOZ с медью), Er 4.43 | 1.5642 mm | нет | да |
+| JLC04101H-7628 (default) | 1.0 | 7628*1, 0.2104 mm, Er 4.4 | 0.5 mm без меди, Er 4.48 | 1.0212 mm | нет | да |
+| JLC04101H-3313 | 1.0 | 3313*1, 0.0994 mm, Er 4.1 | 0.7 mm без меди, Er 4.53 | 0.9992 mm | нет | нет |
+
+«No requirement» в форме заказа = шаблон 7628 (в API `defaultFlag`). В 3313 внешний слой вдвое ближе к опорному
+(0.0994 против 0.2104 mm), поэтому микрополоски на L1/L4 для того же импеданса заметно уже.
+
+Медь взята из 8-слойного донора: L1, L2, L7, L8 → L1..L4 (GUID, ориентация меди, Top/Mid1/Mid2/Bottom).
+Профиль D100 сохранён: L1 (опора L2), L2 (L1/L3), L3 (L2/L4), L4 (опора L3); ширины Altium пересчитает.
+
 Общее для всех файлов:
 
 - маска 0.015 mm (0.5906 mil), Er 3.8;
-- медь L1/L8 1.378 mil (0.035 mm), внутренняя 0.5984 mil (0.0152 mm), материал CF-003 = 0.5 oz по библиотеке Altium;
+- внешняя медь 1.378 mil (0.035 mm), внутренняя 0.5984 mil (0.0152 mm), материал CF-003 = 0.5 oz по библиотеке Altium;
 - LossTangent 0.02, Tg 150C, производитель Nan Ya Plastics NP-155F (справочно, на расчёт не влияет);
 - ETCH = Infinity (без подтравы);
-- GUID медных слоёв общие для всех файлов, импедансный профиль D100 на месте, Altium пересчитает ширины при открытии.
+- GUID медных слоёв общие для файлов с одинаковым числом слоёв, импедансный профиль D100 на месте, Altium пересчитает ширины при открытии.
 
 ## Материалы JLCPCB (Nan Ya NP-155F, платы 4–8 слоёв)
 
@@ -114,7 +138,7 @@ Content-Type: application/json
 
 Ответ: `data[]` с полями `templateName`, `iaminationList[].content` (JSON-строка слоя: Copper, Prepreg или блок Copper+Core+Copper),
 `compressionThickness`, `defaultFlag`, `expeditedFlag`, `fixedFee`, `coefficient` (доплата за шаблон, 0 = без доплаты).
-Снимок ответа для 8L 1.6 mm лежит в `data/`. Разбор: `tools/stacks8L.py`.
+Снимки ответа для 8L 1.6 mm и 4L 1.6 / 1.0 mm (`"stencilLayer":4`) лежат в `data/`. Разбор: `tools/stacks8L.py` (работает для любого числа слоёв).
 
 Все шаблоны 8L 1.6 mm 1 oz / 0.5 oz, диэлектрики вокруг L3 (stripline на L3, опоры L2 и L4):
 
@@ -187,8 +211,8 @@ Copper Paste Filled & Capped — то же с проводящей пастой,
 
 ## Инструменты
 
-- `tools/build_stackup.py api.json JLC08161H-xxxx donor.stackup out.stackup` — сборка файла любого шаблона из API: заголовок, маска и медные слои (с GUID) берутся из донора, диэлектрики строятся по API с Er NP-155F.
-- `tools/verify_stackup.py api.json JLC08161H-xxxx file.stackup` — проверка файла против API: порядок, толщины, Er, сумма, LAYERID, ссылки импедансных профилей.
+- `tools/build_stackup.py api.json JLC08161H-xxxx donor.stackup out.stackup` — сборка файла любого шаблона из API: заголовок, маска и медные слои (с GUID) берутся из донора, диэлектрики строятся по API с Er NP-155F. Если слоёв меньше, чем у донора, берутся внешние половины меди донора, записи импеданса и via span на выброшенные слои удаляются.
+- `tools/verify_stackup.py api.json JLC08161H-xxxx file.stackup` — проверка файла против API: порядок, толщины, Er, сумма, LAYERID диэлектриков и меди (L1..Ln, Top/Mid/Bottom), ссылки импедансных профилей.
 - `tools/stacks8L.py` — разбор JSON API в список слоёв с Er по таблице NP-155F.
 - `tools/zdiff_fd.py` — решатель импеданса (`zdiff`, `z0`, `find_w`), нужны numpy и scipy.
 - `tools/update_stackup.py`, `tools/fix_2313.py` — первые одноразовые скрипты (2313 → 7628, исправление 2313), заменены `build_stackup.py`.
