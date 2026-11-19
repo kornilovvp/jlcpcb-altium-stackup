@@ -7,8 +7,13 @@ The donor supplies the document header, solder mask layers, the copper layers
 GUIDs.  Dielectric layers are rebuilt from the API data with NP-155F Er values.
 
 A template with fewer copper layers than the donor keeps the donor's outer halves
-(4L from 8L: L1 L2 + L7 L8 -> L1..L4, renamed and renumbered); impedance entries
-and via spans that reference a dropped layer are removed.
+(4L from 8L: L1 L2 + L7 L8 -> L1..L4, 6L: L1 L2 L3 + L6 L7 L8 -> L1..L6, renamed
+and renumbered).  Impedance entries on a dropped layer and via spans that reference
+one are removed; the remaining impedance entries get the copper layers directly
+above / below as Top Ref / Bottom Ref (the donor's references no longer apply).
+
+<templateName> is the order-form button label (API showName), e.g. JLC06161H-3313
+or "No requirement"; see stacks8L.load.
 """
 import sys, os, re, uuid, datetime
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
@@ -93,13 +98,21 @@ for kind, label, th, er in seq:
         plan.append(dielectric(f"Dielectric {di_i}", gid, kind, label, th, er))
 plan.append([list(x) for x in layers[max(layers)]])  # Bottom Solder
 
-# impedance entries / via spans: drop those that point at a dropped copper layer, renumber the rest
+# impedance entries / via spans: drop those that point at a dropped copper layer, renumber the rest.
+# In a reduced stack a trace impedance entry is dropped only with its own layer, and its references
+# are re-pointed to the adjacent copper layers.
 kept = {get(r, "ID") for r in plan}
+reduced = n_cu < len(donor_cu)
+cu_ids = [get(r, "ID") for r in cu_recs]
+adjacent = {"TOPREFID": dict(zip(cu_ids[1:], cu_ids)), "BOTREFID": dict(zip(cu_ids, cu_ids[1:]))}
+repoint = lambda m: reduced and m.group(1) == "TRACEIMPEDANCE_V8_" and m.group(3) in adjacent
 grp_re = re.compile(r"^(TRACEIMPEDANCE_V8_|VIASPAN_V8_\{[^}]+\}_)(\d+)(\D.*)$")
-dead, renum = set(), {}
+dead, renum, trace_layer = set(), {}, {}
 for k, v in pairs:
     m = grp_re.match(k)
-    if m and m.group(3).endswith(("LAYERID", "REFID")) and v not in kept:
+    if m and m.group(1) == "TRACEIMPEDANCE_V8_" and m.group(3) == "LAYERID":
+        trace_layer[m.group(1, 2)] = v
+    if m and m.group(3).endswith(("LAYERID", "REFID")) and v not in kept and not repoint(m):
         dead.add(m.group(1, 2))
 for k, v in pairs:
     m = grp_re.match(k)
@@ -124,6 +137,8 @@ for k, v in pairs:
     if m:
         if m.group(1, 2) in dead:
             continue
+        if repoint(m):
+            v = adjacent[m.group(3)][trace_layer[m.group(1, 2)]]
         k = f"{m.group(1)}{renum[m.group(1, 2)]}{m.group(3)}"
     if k.startswith("VIASPAN_V8_") and k.endswith("NAME") and re.fullmatch(r"Thru 1:\d+", v):
         v = f"Thru 1:{n_cu}"

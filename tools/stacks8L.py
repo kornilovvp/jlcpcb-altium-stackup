@@ -4,8 +4,11 @@ ER_CORE = {0.08: 3.99, 0.1: 4.36, 0.13: 4.17, 0.15: 4.36, 0.2: 4.36, 0.25: 4.23,
 ER_PP = {"7628": 4.4, "3313": 4.1, "2313": 4.1, "1080": 3.91, "2116": 4.16}
 def er_core(th): return ER_CORE.get(th, 4.43)
 def load(path):
+    """name -> (layer sequence, JLC total).  Keyed by the order-form button label (showName) and by
+    templateName; the label wins, because JLCPCB reuses a templateName for a different stack
+    (6L 1.6 mm: "No requirement" and "JLC06161H-3313" are both templateName JLC06161H-3313)."""
     api = json.load(open(path, encoding="utf-8"))["data"]
-    out = {}
+    by_name, by_show = {}, {}
     for t in api:
         seq = []
         for lam in sorted(t["iaminationList"], key=lambda x: x["sort"]):
@@ -14,13 +17,19 @@ def load(path):
                 seq.append(("cu", c["LineLayer"], float(c["LineThickness"][:-2]), None))
             elif lam["iaminationType"] == 2:
                 m = c["preMaterialType"]; seq.append(("pp", m, float(c["preThickness"][:-2]), ER_PP[m.split("*")[0]]))
-            else:
+            elif lam["iaminationType"] == 3:
                 th = float(c["coreBoardThickness2"][:-2])
                 seq.append(("cu", c["coreBoardLayer1"], float(c["coreBoardThickness1"][:-2]), None))
                 seq.append(("core", f"core {th}", th, er_core(th)))
                 seq.append(("cu", c["coreBoardLayer3"], float(c["coreBoardThickness3"][:-2]), None))
-        out.setdefault(t["templateName"], (seq, t["compressionThickness"]))
-    return out
+            elif lam["iaminationType"] == 9:      # bare core, copper etched off both sides ("lightPlate")
+                th = float(c["lightPlateThickness"][:-2])
+                seq.append(("core", f"core {th}", th, er_core(th)))
+            else:
+                raise ValueError(f'{t["showName"]}: unknown iaminationType {lam["iaminationType"]}: {lam["content"]}')
+        by_name.setdefault(t["templateName"], (seq, t["compressionThickness"]))
+        by_show.setdefault(t["showName"], (seq, t["compressionThickness"]))
+    return {**by_name, **by_show}
 def gaps(seq, a, b):
     cu = [i for i, s in enumerate(seq) if s[0] == "cu"]
     return [s for s in seq[cu[a]+1:cu[b]] if s[0] != "cu"]
